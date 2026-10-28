@@ -1,0 +1,63 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: rims-backend
+  # 默认使用 H2 文件库，数据落盘到 backend/data/rims.mv.db，开箱即跑、重启不丢数据。
+  # 生产方式切换 MySQL：启动时加 --spring.profiles.active=mysql（见 application-mysql.yml）
+  datasource:
+    url: jdbc:h2:file:./data/rims;MODE=MySQL;DATABASE_TO_LOWER=TRUE;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+      encoding: UTF-8
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+  mvc:
+    throw-exception-if-no-handler-found: true
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+rims:
+  jwt:
+    # 演示用密钥，生产环境请通过环境变量 RIMS_JWT_SECRET 注入
+    secret: ${RIMS_JWT_SECRET:rims-demo-secret-key-change-me-in-production-0123456789}
+    expire-hours: 12
+  ai:
+    # 预审默认走本地规则引擎（零依赖、可离线）。填入 OpenAI 兼容的 API Key 后自动切换为大模型评审。
+    enabled: false
+    base-url: ${RIMS_AI_BASE_URL:https://api.deepseek.com/v1}
+    api-key: ${RIMS_AI_API_KEY:}
+    model: ${RIMS_AI_MODEL:deepseek-chat}
+
+logging:
+  level:
+    root: info
+    com.rims: info
