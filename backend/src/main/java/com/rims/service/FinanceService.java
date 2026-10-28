@@ -23,11 +23,19 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
- * 经费：预算科目 + 支出申请/审批。核心规则是"分科目控额"，申请与审批两次校验。
+ * 经费：预算科目 + 支出申请/审批。
+ *
+ * 额度控制采用“原子预留”方案：budget_item 上维护 reserved_amount（已占用 = 审批中 + 已通过），
+ * 占用/释放都用数据库层的“条件 UPDATE + 影响行数”实现，天然带行锁，因此并发审批不会超支——
+ * 这是相比“先 SELECT 已占用、再判断、再 UPDATE”的 read-modify-write 方案的关键正确性改进。
  */
 @Service
 public class FinanceService {
@@ -64,19 +72,70 @@ public class FinanceService {
                 || Dicts.ProjectStatus.TERMINATED.name().equals(project.getStatus())) {
             throw new BizException("项目已结题/终止，不能调整预算");
         }
-        BigDecimal sum = req.items().stream()
-                .map(i -> i.amount() == null ? BigDecimal.ZERO : i.amount())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (req.items() == null) {
+            throw new BizException("预算科目不能为空");
+        }
+        Map<String, BigDecimal> reqMap = new HashMap<>();
+        for (Dtos.BudgetLine line : req.items()) {
+            if (line == null || !StringUtils.hasText(line.category())) {
+                throw new BizException("预算科目不能为空");
+            }
+            String category;
+            try {
+                category = Dicts.ExpenseCategory.valueOf(line.category()).name();
+            } catch (IllegalArgumentException e) {
+                throw new BizException("非法的预算科目");
+            }
+            BigDecimal amount = line.amount() == null ? BigDecimal.ZERO : line.amount();
+            if (reqMap.putIfAbsent(category, amount) != null) {
+                throw new BizException("预算科目不能重复：" + label(category));
+            }
+        }
+        BigDecimal sum = BigDecimal.ZERO;
+        for (Dicts.ExpenseCategory cat : Dicts.ExpenseCategory.values()) {
+            BigDecimal amt = reqMap.getOrDefault(cat.name(), BigDecimal.ZERO);
+            if (amt.signum() < 0) {
+                throw new BizException("预算金额不能为负数");
+            }
+            sum = sum.add(amt);
+        }
         if (sum.subtract(project.getBudgetTotal()).abs().compareTo(new BigDecimal("0.01")) > 0) {
             throw new BizException("科目合计需等于预算总额 " + project.getBudgetTotal().stripTrailingZeros().toPlainString());
         }
-        budgetMapper.delete(new LambdaQueryWrapper<BudgetItem>().eq(BudgetItem::getProjectId, projectId));
-        for (Dtos.BudgetLine line : req.items()) {
-            BudgetItem item = new BudgetItem();
-            item.setProjectId(projectId);
-            item.setCategory(line.category());
-            item.setAmount(line.amount() == null ? BigDecimal.ZERO : line.amount());
-            budgetMapper.insert(item);
+
+        // 按科目 upsert，保留 reserved_amount，并防止把科目预算下调到已占用以下
+        Map<String, BudgetItem> byCat = budgetMapper.selectList(new LambdaQueryWrapper<BudgetItem>()
+                        .eq(BudgetItem::getProjectId, projectId)).stream()
+                .collect(Collectors.toMap(BudgetItem::getCategory, Function.identity()));
+        for (Dicts.ExpenseCategory cat : Dicts.ExpenseCategory.values()) {
+            BigDecimal amt = reqMap.getOrDefault(cat.name(), BigDecimal.ZERO);
+            BudgetItem item = byCat.get(cat.name());
+            if (item == null) {
+                item = new BudgetItem();
+                item.setProjectId(projectId);
+                item.setCategory(cat.name());
+                item.setReservedAmount(BigDecimal.ZERO);
+                item.setAmount(amt);
+                budgetMapper.insert(item);
+            } else {
+                BigDecimal reserved = item.getReservedAmount() == null ? BigDecimal.ZERO : item.getReservedAmount();
+                if (reserved.compareTo(amt) > 0) {
+                    throw new BizException("「" + label(cat.name()) + "」已占用 " + reserved.stripTrailingZeros().toPlainString()
+                            + " 元，预算不能低于已占用金额");
+                }
+                int rows = budgetMapper.updateAmountIfAvailable(item.getId(), amt);
+                if (rows == 0) {
+                    BudgetItem latest = budgetMapper.selectById(item.getId());
+                    if (latest == null || latest.getReservedAmount().compareTo(amt) > 0
+                            || latest.getAmount().compareTo(amt) != 0) {
+                        BigDecimal reservedNow = latest == null || latest.getReservedAmount() == null
+                                ? BigDecimal.ZERO : latest.getReservedAmount();
+                        throw new BizException("「" + label(cat.name()) + "」已占用 "
+                                + reservedNow.stripTrailingZeros().toPlainString()
+                                + " 元，预算不能低于已占用金额");
+                    }
+                }
+            }
         }
         auditService.record("BUDGET_UPDATE", "项目 " + project.getCode(), "调整预算科目");
         return budgets(projectId);
@@ -100,7 +159,19 @@ public class FinanceService {
         } catch (Exception e) {
             throw new BizException("非法的费用科目");
         }
-        checkBudget(projectId, category, req.amount());
+        BudgetItem budget = findBudget(projectId, category);
+        if (budget == null) {
+            throw new BizException("该项目「" + label(category) + "」尚未下拨预算，无法申请");
+        }
+        // 原子预留：仅当“已占用 + 本次 <= 额度”时成功，数据库行锁保证并发安全
+        int rows = budgetMapper.reserve(budget.getId(), req.amount());
+        if (rows == 0) {
+            BudgetItem latest = budgetMapper.selectById(budget.getId());
+            BigDecimal reserved = latest.getReservedAmount() == null ? BigDecimal.ZERO : latest.getReservedAmount();
+            BigDecimal remain = latest.getAmount().subtract(reserved).max(BigDecimal.ZERO);
+            throw new BizException("「" + label(category) + "」预算剩余 " + remain.stripTrailingZeros().toPlainString()
+                    + " 元，本次申请 " + req.amount().stripTrailingZeros().toPlainString() + " 元，已超出额度");
+        }
 
         Expense expense = new Expense();
         expense.setProjectId(projectId);
@@ -111,6 +182,7 @@ public class FinanceService {
         expense.setApplicantId(user.id());
         expense.setApplicantName(user.realName());
         expense.setStatus(Dicts.ExpenseStatus.PENDING.name());
+        expense.setVersion(0L);
         expense.setCreatedAt(LocalDateTime.now());
         expenseMapper.insert(expense);
         auditService.record("EXPENSE_SUBMIT", "项目 " + project.getCode(),
@@ -151,18 +223,24 @@ public class FinanceService {
         if (!Dicts.ExpenseStatus.PENDING.name().equals(expense.getStatus())) {
             throw new BizException("该单据已处理，不能重复审批");
         }
-        if (req.approved()) {
-            // 审批时重新校验额度，避免并发下单笔都"看起来"没超；排除当前单据自身占用的额度
-            checkBudget(expense.getProjectId(), expense.getCategory(), expense.getAmount(), expense.getId());
-            expense.setStatus(Dicts.ExpenseStatus.APPROVED.name());
-        } else {
-            expense.setStatus(Dicts.ExpenseStatus.REJECTED.name());
-        }
+        String toStatus = req.approved() ? Dicts.ExpenseStatus.APPROVED.name() : Dicts.ExpenseStatus.REJECTED.name();
+        expense.setStatus(toStatus);
         expense.setApproverId(user.id());
         expense.setApproverName(user.realName());
         expense.setOpinion(req.opinion());
         expense.setApprovedAt(LocalDateTime.now());
-        expenseMapper.updateById(expense);
+        // 先带版本更新状态：并发审批会让后到的事务命中 0 行，抛出冲突，杜绝重复审批
+        int rows = expenseMapper.updateById(expense);
+        if (rows == 0) {
+            throw BizException.conflict("该单据已被他人审批，请刷新后查看最新状态");
+        }
+        if (!req.approved()) {
+            // 驳回：释放创建时占用的额度（仅在状态更新成功后进行，避免版本冲突时误释放）
+            BudgetItem b = findBudget(expense.getProjectId(), expense.getCategory());
+            if (b == null || budgetMapper.release(b.getId(), expense.getAmount()) != 1) {
+                throw BizException.conflict("预算占用数据异常，单据未完成处理，请联系管理员");
+            }
+        }
 
         ApprovalRecord record = new ApprovalRecord();
         record.setBizType("EXPENSE");
@@ -187,32 +265,9 @@ public class FinanceService {
                 .eq(Expense::getProjectId, projectId).orderByDesc(Expense::getId));
     }
 
-    /**
-     * 分科目额度校验：已通过 + 审批中 都不能突破科目预算。
-     *
-     * @param excludeExpenseId 审批时传入当前单据 id，避免把自己的在途金额重复计入
-     */
-    private void checkBudget(Long projectId, String category, BigDecimal amount) {
-        checkBudget(projectId, category, amount, null);
-    }
-
-    private void checkBudget(Long projectId, String category, BigDecimal amount, Long excludeExpenseId) {
-        BigDecimal budget = budgetMapper.selectList(new LambdaQueryWrapper<BudgetItem>()
-                        .eq(BudgetItem::getProjectId, projectId).eq(BudgetItem::getCategory, category))
-                .stream().map(BudgetItem::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (budget.signum() == 0) {
-            throw new BizException("该项目「" + label(category) + "」尚未下拨预算，无法申请");
-        }
-        BigDecimal committed = expenseMapper.selectList(new LambdaQueryWrapper<Expense>()
-                        .eq(Expense::getProjectId, projectId).eq(Expense::getCategory, category)
-                        .ne(excludeExpenseId != null, Expense::getId, excludeExpenseId)
-                        .in(Expense::getStatus, List.of(Dicts.ExpenseStatus.APPROVED.name(), Dicts.ExpenseStatus.PENDING.name())))
-                .stream().map(Expense::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal remain = budget.subtract(committed);
-        if (amount.compareTo(remain) > 0) {
-            throw new BizException("「" + label(category) + "」预算剩余 " + remain.stripTrailingZeros().toPlainString()
-                    + " 元，本次申请 " + amount.stripTrailingZeros().toPlainString() + " 元，已超出额度");
-        }
+    private BudgetItem findBudget(Long projectId, String category) {
+        return budgetMapper.selectOne(new LambdaQueryWrapper<BudgetItem>()
+                .eq(BudgetItem::getProjectId, projectId).eq(BudgetItem::getCategory, category));
     }
 
     /**

@@ -111,12 +111,7 @@ async function main() {
   const approve = await call(admin, 'POST', `/projects/${projectId}/review`, { action: 'APPROVE', opinion: '同意立项' });
   assert(approve.code === 0 && approve.data.status === 'IN_PROGRESS', '科研处立项通过', approve);
 
-  console.log('\n[5] AI 预审');
-  const ai = await call(zhang, 'POST', `/projects/${projectId}/ai-review`);
-  assert(ai.code === 0 && typeof ai.data.score === 'number' && ai.data.engine === 'RULE',
-    'AI 预审返回评分与风险项（规则引擎）', ai.data);
-
-  console.log('\n[6] 执行期：里程碑 / 进度 / 成果 / 经费');
+  console.log('\n[5] 执行期：里程碑 / 进度 / 成果 / 经费');
   const ms = await call(zhang, 'POST', `/projects/${projectId}/milestones`, { name: '样机试制', planDate: iso(plusMonths(12)) });
   assert(ms.code === 0, '新增里程碑', ms);
   const msDone = await call(zhang, 'POST', `/milestones/${ms.data.id}/complete`);
@@ -148,13 +143,13 @@ async function main() {
   });
   assert(ach.code === 0, '登记成果', ach);
 
-  console.log('\n[7] 结题验收');
+  console.log('\n[6] 结题验收');
   const acceptSubmit = await call(zhang, 'POST', `/projects/${projectId}/acceptance-submit`);
   assert(acceptSubmit.code === 0 && acceptSubmit.data.status === 'PENDING_ACCEPTANCE', '提交结题申请', acceptSubmit);
   const accept = await call(admin, 'POST', `/projects/${projectId}/acceptance`, { passed: true, opinion: '指标达成，验收通过' });
   assert(accept.code === 0 && accept.data.status === 'COMPLETED', '验收通过并归档', accept);
 
-  console.log('\n[8] 审批留痕与审计');
+  console.log('\n[7] 审批留痕与审计');
   const detail = await call(admin, 'GET', `/projects/${projectId}`);
   assert(detail.data.approvals.length >= 4, '项目审批流水完整', detail.data?.approvals?.length);
   const audits = await call(admin, 'GET', '/audit-logs?size=5');

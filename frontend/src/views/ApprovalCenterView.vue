@@ -46,12 +46,6 @@
               <el-table-column label="预算" width="120">
                 <template #default="{ row }"><span class="mono">{{ money(row.budgetTotal) }}</span></template>
               </el-table-column>
-              <el-table-column label="AI 预审" width="90">
-                <template #default="{ row }">
-                  <span v-if="row.aiScore" :class="row.aiScore < 70 ? 'score-low' : 'score-ok'">{{ row.aiScore }}</span>
-                  <span v-else class="tiny">—</span>
-                </template>
-              </el-table-column>
               <el-table-column label="操作" width="170" fixed="right">
                 <template #default="{ row }">
                   <el-button link type="primary" @click="router.push(`/projects/${row.id}`)">查看</el-button>
@@ -363,16 +357,6 @@ onMounted(loadAll);
   background: #f1f4fa;
   border-radius: 8px;
   padding: 1px 6px;
-}
-
-.score-ok {
-  color: #0f9d76;
-  font-weight: 600;
-}
-
-.score-low {
-  color: #d97706;
-  font-weight: 600;
 }
 
 .dialog-context {

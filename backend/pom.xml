@@ -19,6 +19,9 @@
 
     <properties>
         <java.version>17</java.version>
+        <!-- 显式声明源码编码，避免 Windows 下 javac 用平台默认(GBK)编译中文常量导致乱码/比较失败 -->
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.encoding>UTF-8</maven.compiler.encoding>
         <mybatis-plus.version>3.5.7</mybatis-plus.version>
         <jjwt.version>0.11.5</jjwt.version>
         <springdoc.version>2.3.0</springdoc.version>

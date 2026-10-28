@@ -4,7 +4,6 @@ import com.rims.common.PageResult;
 import com.rims.common.Result;
 import com.rims.dto.Dtos;
 import com.rims.entity.Project;
-import com.rims.service.AiReviewService;
 import com.rims.service.ProjectService;
 import com.rims.service.WorkflowService;
 import jakarta.validation.Valid;
@@ -16,13 +15,10 @@ public class ProjectController {
 
     private final ProjectService projectService;
     private final WorkflowService workflowService;
-    private final AiReviewService aiReviewService;
 
-    public ProjectController(ProjectService projectService, WorkflowService workflowService,
-                             AiReviewService aiReviewService) {
+    public ProjectController(ProjectService projectService, WorkflowService workflowService) {
         this.projectService = projectService;
         this.workflowService = workflowService;
-        this.aiReviewService = aiReviewService;
     }
 
     @GetMapping
@@ -81,8 +77,4 @@ public class ProjectController {
         return Result.ok(workflowService.terminate(id, req.opinion()));
     }
 
-    @PostMapping("/{id}/ai-review")
-    public Result<Dtos.AiReviewResponse> aiReview(@PathVariable Long id) {
-        return Result.ok(aiReviewService.review(id));
-    }
 }

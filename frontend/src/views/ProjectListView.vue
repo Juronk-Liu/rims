@@ -39,9 +39,6 @@
             <div class="meta">
               <el-tag size="small" effect="plain">{{ row.categoryLabel }}</el-tag>
               <span class="meta-text">{{ row.typeLabel }}</span>
-              <span v-if="row.aiScore" class="ai-score" :class="{ low: row.aiScore < 70 }">
-                AI 预审 {{ row.aiScore }}
-              </span>
             </div>
           </template>
         </el-table-column>
@@ -226,19 +223,6 @@ onMounted(load);
 .meta-text {
   font-size: 12px;
   color: var(--rims-text-muted);
-}
-
-.ai-score {
-  font-size: 11px;
-  color: #0f9d76;
-  background: #e9f8f2;
-  padding: 1px 6px;
-  border-radius: 4px;
-}
-
-.ai-score.low {
-  color: #b45309;
-  background: #fff5e6;
 }
 
 .progress-cell {

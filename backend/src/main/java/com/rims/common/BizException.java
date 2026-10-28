@@ -27,4 +27,8 @@ public class BizException extends RuntimeException {
     public static BizException notFound(String message) {
         return new BizException(404, message);
     }
+
+    public static BizException conflict(String message) {
+        return new BizException(409, message);
+    }
 }

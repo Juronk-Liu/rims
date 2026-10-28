@@ -76,7 +76,7 @@ public class WorkflowService {
         project.setStatus(Dicts.ProjectStatus.SUBMITTED.name());
         project.setSubmittedAt(LocalDateTime.now());
         project.setUpdatedAt(LocalDateTime.now());
-        projectMapper.updateById(project);
+        updateProjectOptimistic(project);
         record(project, "SUBMIT", from, project.getStatus(), "提交申报", user);
         auditService.record("PROJECT_SUBMIT", "项目 " + project.getCode(), "提交申报：" + project.getName());
         return project;
@@ -126,7 +126,7 @@ public class WorkflowService {
             project.setApprovedAt(LocalDateTime.now());
         }
         project.setUpdatedAt(LocalDateTime.now());
-        projectMapper.updateById(project);
+        updateProjectOptimistic(project);
         record(project, "APPROVE".equals(action) ? "APPROVE" : "REJECT", from, to,
                 req.opinion() == null ? "" : req.opinion(), user);
         auditService.record("PROJECT_REVIEW", "项目 " + project.getCode(),
@@ -154,7 +154,7 @@ public class WorkflowService {
         String from = project.getStatus();
         project.setStatus(Dicts.ProjectStatus.PENDING_ACCEPTANCE.name());
         project.setUpdatedAt(LocalDateTime.now());
-        projectMapper.updateById(project);
+        updateProjectOptimistic(project);
         record(project, "SUBMIT_ACCEPTANCE", from, project.getStatus(), "提交结题验收", AuthContext.get());
         auditService.record("PROJECT_ACCEPTANCE_SUBMIT", "项目 " + project.getCode(), "提交结题：" + project.getName());
         return project;
@@ -174,7 +174,7 @@ public class WorkflowService {
             project.setCompletedAt(LocalDateTime.now());
         }
         project.setUpdatedAt(LocalDateTime.now());
-        projectMapper.updateById(project);
+        updateProjectOptimistic(project);
         record(project, req.passed() ? "ACCEPT_PASS" : "ACCEPT_REJECT", from, to,
                 req.opinion() == null ? "" : req.opinion(), AuthContext.get());
         auditService.record("PROJECT_ACCEPTANCE", "项目 " + project.getCode(),
@@ -196,10 +196,21 @@ public class WorkflowService {
         String from = project.getStatus();
         project.setStatus(Dicts.ProjectStatus.TERMINATED.name());
         project.setUpdatedAt(LocalDateTime.now());
-        projectMapper.updateById(project);
+        updateProjectOptimistic(project);
         record(project, "TERMINATE", from, project.getStatus(), opinion, AuthContext.get());
         auditService.record("PROJECT_TERMINATE", "项目 " + project.getCode(), "终止项目：" + opinion);
         return project;
+    }
+
+    /**
+     * 带乐观锁保护的更新：Project 带 @Version 字段，并发修改会让本事务的更新命中 0 行，
+     * 此时抛出冲突异常，避免静默丢更新。
+     */
+    private void updateProjectOptimistic(Project project) {
+        int rows = projectMapper.updateById(project);
+        if (rows == 0) {
+            throw BizException.conflict("数据已被他人修改，请刷新页面后重试");
+        }
     }
 
     private void record(Project project, String action, String from, String to, String opinion, LoginUser user) {

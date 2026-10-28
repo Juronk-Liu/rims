@@ -55,7 +55,7 @@ public final class Dtos {
             String type, String typeLabel, Long leaderId, String leaderName, String dept,
             BigDecimal budgetTotal, BigDecimal approvedExpense, Integer progressPercent,
             LocalDate startDate, LocalDate endDate, String status, String statusLabel,
-            Integer aiScore, Long daysLeft, boolean overdue
+            Long daysLeft, boolean overdue
     ) {
     }
 
@@ -112,10 +112,4 @@ public final class Dtos {
     public record BudgetSaveRequest(@NotNull List<BudgetLine> items) {
     }
 
-    // ---------- AI 预审 ----------
-    public record AiReviewResponse(int score, String engine, List<AiFinding> findings, String summary) {
-    }
-
-    public record AiFinding(String level, String message, String suggestion) {
-    }
 }

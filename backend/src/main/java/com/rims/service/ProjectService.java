@@ -154,6 +154,7 @@ public class ProjectService {
         project.setCreatedAt(now);
         project.setUpdatedAt(now);
         project.setDeleted(0);
+        project.setVersion(0L);
         projectMapper.insert(project);
 
         replaceMembers(project, req.members());
@@ -349,7 +350,7 @@ public class ProjectService {
                 p.getType(), label(Dicts.ProjectType.class, p.getType()),
                 p.getLeaderId(), p.getLeaderName(), p.getDept(), p.getBudgetTotal(), approvedExpense, progress,
                 p.getStartDate(), p.getEndDate(), p.getStatus(), label(Dicts.ProjectStatus.class, p.getStatus()),
-                p.getAiScore(), daysLeft, daysLeft < 0 && isActive(p.getStatus()));
+                daysLeft, daysLeft < 0 && isActive(p.getStatus()));
     }
 
     private void replaceMembers(Project project, List<Dtos.MemberItem> members) {
@@ -411,6 +412,7 @@ public class ProjectService {
         item.setProjectId(projectId);
         item.setCategory(category);
         item.setAmount(amount);
+        item.setReservedAmount(BigDecimal.ZERO);
         budgetMapper.insert(item);
     }
 

@@ -2,6 +2,7 @@ package com.rims.config;
 
 import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
+import com.baomidou.mybatisplus.extension.plugins.inner.OptimisticLockerInnerInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,6 +20,9 @@ public class MybatisPlusConfig {
         PaginationInnerInterceptor pagination = new PaginationInnerInterceptor(DbType.H2);
         pagination.setMaxLimit(200L);
         interceptor.addInnerInterceptor(pagination);
+        // 乐观锁：状态流转（updateById）自动带 WHERE version=? 并自增；并发冲突时影响 0 行，
+        // 由 WorkflowService/FinanceService 检查受影响行数后抛出冲突异常，避免静默丢更新。
+        interceptor.addInnerInterceptor(new OptimisticLockerInnerInterceptor());
         return interceptor;
     }
 }

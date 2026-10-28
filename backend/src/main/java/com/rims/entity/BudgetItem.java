@@ -16,4 +16,5 @@ public class BudgetItem {
     private Long projectId;
     private String category;
     private BigDecimal amount;
+    private BigDecimal reservedAmount;
 }

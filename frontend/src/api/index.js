@@ -18,7 +18,6 @@ export const projectApi = {
   acceptanceSubmit: (id) => http.post(`/projects/${id}/acceptance-submit`),
   acceptance: (id, data) => http.post(`/projects/${id}/acceptance`, data),
   terminate: (id, data) => http.post(`/projects/${id}/terminate`, data),
-  aiReview: (id) => http.post(`/projects/${id}/ai-review`),
 };
 
 export const progressApi = {

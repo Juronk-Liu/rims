@@ -30,15 +30,14 @@ CREATE TABLE IF NOT EXISTS project (
     status           VARCHAR(32)  NOT NULL,
     summary          VARCHAR(4000),
     expected_outcome VARCHAR(1000),
-    ai_score         INT,
-    ai_report        VARCHAR(4000),
     created_by       BIGINT,
     created_at       TIMESTAMP,
     updated_at       TIMESTAMP,
     submitted_at     TIMESTAMP,
     approved_at      TIMESTAMP,
     completed_at     TIMESTAMP,
-    deleted          INT          DEFAULT 0
+    deleted          INT          DEFAULT 0,
+    version          BIGINT       NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS project_member (
@@ -74,10 +73,11 @@ CREATE TABLE IF NOT EXISTS progress_report (
 );
 
 CREATE TABLE IF NOT EXISTS budget_item (
-    id         BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_id BIGINT NOT NULL,
-    category   VARCHAR(32) NOT NULL,
-    amount     DECIMAL(14, 2) DEFAULT 0
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id      BIGINT NOT NULL,
+    category        VARCHAR(32) NOT NULL,
+    amount          DECIMAL(14, 2) DEFAULT 0,
+    reserved_amount DECIMAL(14, 2) NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS expense (
@@ -94,7 +94,8 @@ CREATE TABLE IF NOT EXISTS expense (
     approver_name   VARCHAR(64),
     opinion         VARCHAR(500),
     created_at      TIMESTAMP,
-    approved_at     TIMESTAMP
+    approved_at     TIMESTAMP,
+    version         BIGINT       NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS achievement (

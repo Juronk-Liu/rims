@@ -12,9 +12,6 @@
             <span class="code mono">{{ project.code }}</span>
             <span class="dot-sep">·</span>
             <span class="tiny">{{ categoryMap[project.category]?.label }} / {{ projectTypeMap[project.type]?.label }}</span>
-            <span v-if="project.aiScore" class="ai-badge" :class="{ low: project.aiScore < 70 }">
-              AI 预审 {{ project.aiScore }} 分
-            </span>
           </div>
           <h1 class="title">{{ project.name }}</h1>
           <div class="header-meta">
@@ -27,9 +24,6 @@
         <div class="header-actions">
           <el-button v-if="canEditProject" @click="router.push(`/projects/${project.id}/edit`)">编辑</el-button>
           <el-button v-if="canSubmit" type="primary" @click="submitProject">提交申报</el-button>
-          <el-button :loading="aiLoading" @click="runAiReview">
-            <el-icon style="margin-right: 4px"><MagicStick /></el-icon>AI 预审
-          </el-button>
           <el-button v-if="canDeptReview" type="success" @click="openReview('APPROVE')">部门审核</el-button>
           <el-button v-if="canDeptReview" type="danger" plain @click="openReview('REJECT')">驳回</el-button>
           <el-button v-if="canAdminApprove" type="success" @click="openReview('APPROVE')">立项审批</el-button>
@@ -60,16 +54,6 @@
                   <div class="field-block">
                     <div class="field-label">预期成果</div>
                     <div class="field-text">{{ project.expectedOutcome || '未填写' }}</div>
-                  </div>
-
-                  <div class="ai-panel" v-if="project.aiReport">
-                    <div class="ai-panel-head">
-                      <span class="ai-title"><el-icon><MagicStick /></el-icon>AI 预审意见</span>
-                      <el-tag size="small" effect="plain" :type="project.aiScore >= 80 ? 'success' : project.aiScore >= 60 ? 'warning' : 'danger'">
-                        {{ project.aiScore }} 分
-                      </el-tag>
-                    </div>
-                    <p class="ai-summary">{{ project.aiReport }}</p>
                   </div>
 
                   <div class="field-block">
@@ -328,30 +312,6 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="aiDialog" title="AI 申报预审" width="560px">
-      <div v-if="aiResult" class="ai-result">
-        <div class="ai-score-row">
-          <div class="ai-score-big">{{ aiResult.score }}</div>
-          <div>
-            <div class="ai-score-label">形式审查得分</div>
-            <div class="tiny">引擎：{{ aiResult.engine }}</div>
-          </div>
-        </div>
-        <p class="ai-summary">{{ aiResult.summary }}</p>
-        <div class="finding" v-for="(f, i) in aiResult.findings" :key="i">
-          <el-tag size="small" :type="f.level === 'HIGH' ? 'danger' : f.level === 'MEDIUM' ? 'warning' : 'info'"
-            effect="light">{{ f.level }}</el-tag>
-          <div>
-            <div class="finding-title">{{ f.message }}</div>
-            <div class="tiny">{{ f.suggestion }}</div>
-          </div>
-        </div>
-      </div>
-      <template #footer>
-        <el-button type="primary" @click="aiDialog = false">知道了</el-button>
-      </template>
-    </el-dialog>
-
     <el-dialog v-model="milestoneDialog" title="新增里程碑" width="460px">
       <el-form label-position="top">
         <el-form-item label="节点名称" required>
@@ -473,7 +433,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ArrowLeft, ArrowDown, Calendar, Clock, Coin, MagicStick, OfficeBuilding, User } from '@element-plus/icons-vue';
+import { ArrowLeft, ArrowDown, Calendar, Clock, Coin, OfficeBuilding, User } from '@element-plus/icons-vue';
 import { financeApi, progressApi, projectApi } from '@/api';
 import { useAuthStore } from '@/stores/auth';
 import {
@@ -488,14 +448,11 @@ const auth = useAuthStore();
 
 const loading = ref(false);
 const submitting = ref(false);
-const aiLoading = ref(false);
 const detail = ref(null);
 const activeTab = ref('overview');
 
 const reviewDialog = ref(false);
 const reviewForm = reactive({ action: 'APPROVE', opinion: '' });
-const aiDialog = ref(false);
-const aiResult = ref(null);
 const milestoneDialog = ref(false);
 const milestoneForm = reactive({ name: '', planDate: '' });
 const progressDialog = ref(false);
@@ -616,18 +573,6 @@ const submitReview = async () => {
     load();
   } finally {
     submitting.value = false;
-  }
-};
-
-const runAiReview = async () => {
-  aiLoading.value = true;
-  try {
-    const res = await projectApi.aiReview(project.value.id);
-    aiResult.value = res.data;
-    aiDialog.value = true;
-    load();
-  } finally {
-    aiLoading.value = false;
   }
 };
 
@@ -808,19 +753,6 @@ onMounted(load);
   color: #ccd4e2;
 }
 
-.ai-badge {
-  font-size: 11px;
-  color: #0f9d76;
-  background: #e9f8f2;
-  border-radius: 4px;
-  padding: 2px 7px;
-}
-
-.ai-badge.low {
-  color: #b45309;
-  background: #fff5e6;
-}
-
 .title {
   font-size: 22px;
   font-weight: 650;
@@ -882,37 +814,6 @@ onMounted(load);
   line-height: 1.9;
   color: var(--rims-text-secondary);
   white-space: pre-wrap;
-}
-
-.ai-panel {
-  background: #f7f9ff;
-  border: 1px solid #e3eaff;
-  border-radius: 10px;
-  padding: 14px 16px;
-  margin-bottom: 22px;
-}
-
-.ai-panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.ai-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #23408f;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.ai-summary {
-  font-size: 13px;
-  line-height: 1.8;
-  color: #3d4a63;
-  margin: 0;
 }
 
 .timeline {
@@ -1180,44 +1081,6 @@ onMounted(load);
 .member-name {
   font-size: 13px;
   font-weight: 500;
-}
-
-.ai-result {
-  display: grid;
-  gap: 12px;
-}
-
-.ai-score-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px dashed var(--rims-border);
-}
-
-.ai-score-big {
-  font-size: 40px;
-  font-weight: 700;
-  color: var(--rims-primary);
-  line-height: 1;
-}
-
-.ai-score-label {
-  font-size: 13px;
-  color: var(--rims-text-secondary);
-  margin-bottom: 4px;
-}
-
-.finding {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.finding-title {
-  font-size: 13px;
-  font-weight: 500;
-  margin-bottom: 3px;
 }
 
 @media (max-width: 1200px) {

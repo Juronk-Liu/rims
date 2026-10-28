@@ -1,5 +1,6 @@
 package com.rims.config;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.rims.common.Dicts;
 import com.rims.entity.*;
 import com.rims.mapper.*;
@@ -13,6 +14,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 
 /**
  * 演示数据初始化：只在空库时执行一次，数据写入 H2 文件库，重启不会重复插入。
@@ -52,7 +54,7 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         if (userMapper.selectCount(null) > 0) {
-            log.info("已有数据，跳过初始化");
+            log.info("已有数据，跳过演示数据初始化");
             return;
         }
         log.info("初始化演示数据...");
@@ -69,7 +71,7 @@ public class DataInitializer implements CommandLineRunner {
         // 1. 执行中的重点项目：有进度、有经费、有逾期里程碑
         Project p1 = project("PRJ-" + today.getYear() + "-001", "面向复杂工况的工业机器人视觉检测关键技术研究",
                 "PROVINCIAL", "APPLIED", zhang, "省重点研发计划", 1_200_000,
-                today.minusMonths(14), today.plusMonths(7), "IN_PROGRESS", 88,
+                today.minusMonths(14), today.plusMonths(7), "IN_PROGRESS",
                 "针对铸造车间高温、粉尘、强反光工况下工业机器人视觉检测精度衰减问题，研究多光谱成像与抗干扰检测算法，"
                         + "构建面向复杂表面的缺陷样本库，形成可工程部署的视觉检测单元。",
                 "申请发明专利 2 项，发表高水平论文 3 篇，研制视觉检测样机 1 套并在合作企业完成产线验证。",
@@ -97,7 +99,7 @@ public class DataInitializer implements CommandLineRunner {
         // 2. 待部门审核
         Project p2 = project("PRJ-" + today.getYear() + "-002", "基于大模型的知识图谱自动构建方法研究",
                 "NATIONAL", "APPLIED", li, "国家自然科学基金", 800_000,
-                today, today.plusMonths(36), "SUBMITTED", 76,
+                today, today.plusMonths(36), "SUBMITTED",
                 "研究面向科研文献的大模型驱动知识图谱构建方法，重点解决实体关系抽取中的长尾类别识别与事实一致性校验问题，"
                         + "并在院所科研数据平台上验证。",
                 "发表 CCF-B 以上论文 2 篇，申请发明专利 1 项，形成知识图谱构建工具 1 套。",
@@ -113,7 +115,7 @@ public class DataInitializer implements CommandLineRunner {
         // 3. 待科研处立项
         Project p3 = project("PRJ-" + today.getYear() + "-003", "高性能储能电池界面调控机理研究",
                 "PROVINCIAL", "BASIC", wang, "省自然科学基金", 600_000,
-                today.plusMonths(1), today.plusMonths(37), "DEPT_APPROVED", 84,
+                today.plusMonths(1), today.plusMonths(37), "DEPT_APPROVED",
                 "围绕高镍正极/硅碳负极界面失效问题，研究界面包覆层结构与循环稳定性之间的构效关系，"
                         + "为长寿命储能电池设计提供理论依据。",
                 "发表 SCI 论文 3 篇，培养硕士研究生 2 名，形成界面调控工艺方案 1 套。",
@@ -128,7 +130,7 @@ public class DataInitializer implements CommandLineRunner {
         // 4. 待验收
         Project p4 = project("PRJ-" + (today.getYear() - 1) + "-014", "城市地下管网智能巡检机器人系统",
                 "INSTITUTIONAL", "DEVELOPMENT", zhang, "院所自筹", 950_000,
-                today.minusMonths(20), today.minusMonths(1), "PENDING_ACCEPTANCE", 92,
+                today.minusMonths(20), today.minusMonths(1), "PENDING_ACCEPTANCE",
                 "研制适应 DN300-DN800 管径的地下管网巡检机器人，具备淤泥环境行走、缺陷图像采集与离线定位能力，"
                         + "解决人工下井作业风险高的问题。",
                 "完成巡检机器人样机 2 台，申请专利 2 项，形成企业标准 1 项。",
@@ -154,7 +156,7 @@ public class DataInitializer implements CommandLineRunner {
         // 5. 已结题
         Project p5 = project("PRJ-" + (today.getYear() - 2) + "-008", "面向双碳的工业园区能耗优化平台",
                 "PROVINCIAL", "APPLIED", li, "省科技成果转化专项", 1_500_000,
-                today.minusMonths(32), today.minusMonths(5), "COMPLETED", 90,
+                today.minusMonths(32), today.minusMonths(5), "COMPLETED",
                 "构建工业园区多能源协同优化模型，打通电、气、热计量数据，实现负荷预测与用能策略优化，"
                         + "在 3 个园区完成部署。",
                 "平台 1 套，接入企业 60 家，年综合能耗下降 6% 以上，申请软著 2 项。",
@@ -181,7 +183,7 @@ public class DataInitializer implements CommandLineRunner {
         // 6. 草稿
         Project p6 = project("PRJ-" + today.getYear() + "-004", "多模态医疗影像辅助诊断算法研究",
                 "INSTITUTIONAL", "APPLIED", wang, "院所青年基金", 300_000,
-                today.plusMonths(1), today.plusMonths(25), "DRAFT", null,
+                today.plusMonths(1), today.plusMonths(25), "DRAFT",
                 "探索 CT 与超声影像融合的辅助诊断方法，重点研究小样本条件下的跨模态特征对齐。",
                 "发表论文 2 篇，形成算法原型 1 套。",
                 today.minusDays(3).atTime(16, 20));
@@ -193,7 +195,7 @@ public class DataInitializer implements CommandLineRunner {
         // 7. 横向课题：经费接近上限 + 项目逾期
         Project p7 = project("PRJ-" + (today.getYear() - 1) + "-021", "农业无人机变量施肥决策系统",
                 "ENTERPRISE", "DEVELOPMENT", zhang, "企业委托（中科智农）", 400_000,
-                today.minusMonths(16), today.minusMonths(1), "IN_PROGRESS", 81,
+                today.minusMonths(16), today.minusMonths(1), "IN_PROGRESS",
                 "面向大田作物，基于多光谱遥感与处方图生成变量施肥决策模型，与无人机飞控系统对接，"
                         + "实现按需施肥、减少氮肥浪费。",
                 "决策系统 1 套，示范面积 5000 亩，氮肥用量降低 10%。",
@@ -214,7 +216,7 @@ public class DataInitializer implements CommandLineRunner {
         // 8. 被驳回
         Project p8 = project("PRJ-" + today.getYear() + "-005", "面向边缘计算的低功耗芯片架构研究",
                 "NATIONAL", "BASIC", li, "国家自然科学基金", 700_000,
-                today.plusMonths(2), today.plusMonths(38), "REJECTED", 72,
+                today.plusMonths(2), today.plusMonths(38), "REJECTED",
                 "研究面向边缘推理的低功耗可重构芯片架构，探索存算一体单元在卷积加速中的应用。",
                 "发表论文 2 篇，流片 1 次。",
                 today.minusDays(20).atTime(9, 45));
@@ -227,6 +229,7 @@ public class DataInitializer implements CommandLineRunner {
                 "与本年度已立项的「边缘智能芯片」方向重复，建议调整研究内容后另行申报。",
                 p8.getSubmittedAt().plusDays(10));
 
+        reconcileBudgetReserved();
         log.info("演示数据初始化完成，共 {} 个项目", projectMapper.selectCount(null));
     }
 
@@ -248,7 +251,7 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private Project project(String code, String name, String category, String type, SysUser leader, String source,
-                            double budgetTotal, LocalDate start, LocalDate end, String status, Integer aiScore,
+                            double budgetTotal, LocalDate start, LocalDate end, String status,
                             String summary, String expectedOutcome, LocalDateTime submittedAt) {
         Project p = new Project();
         p.setCode(code);
@@ -265,7 +268,6 @@ public class DataInitializer implements CommandLineRunner {
         p.setStatus(status);
         p.setSummary(summary);
         p.setExpectedOutcome(expectedOutcome);
-        p.setAiScore(aiScore);
         p.setCreatedBy(leader.getId());
         p.setCreatedAt(submittedAt.minusDays(1));
         p.setUpdatedAt(submittedAt.plusDays(2));
@@ -279,6 +281,7 @@ public class DataInitializer implements CommandLineRunner {
             p.setCompletedAt(end.atTime(15, 0));
         }
         p.setDeleted(0);
+        p.setVersion(0L);
         projectMapper.insert(p);
         return p;
     }
@@ -301,6 +304,7 @@ public class DataInitializer implements CommandLineRunner {
             item.setProjectId(project.getId());
             item.setCategory(categories[i]);
             item.setAmount(BigDecimal.valueOf(amounts[i]));
+            item.setReservedAmount(BigDecimal.ZERO);
             budgetMapper.insert(item);
         }
     }
@@ -336,6 +340,7 @@ public class DataInitializer implements CommandLineRunner {
             e.setApprovedAt(date.plusDays(2).atTime(10, 0));
         }
         e.setCreatedAt(date.atTime(9, 0));
+        e.setVersion(0L);
         expenseMapper.insert(e);
     }
 
@@ -411,5 +416,20 @@ public class DataInitializer implements CommandLineRunner {
         r.setOpinion(opinion);
         r.setCreatedAt(at);
         approvalMapper.insert(r);
+    }
+
+    /** 初始化演示数据后，对账预算占用字段。 */
+    private void reconcileBudgetReserved() {
+        List<BudgetItem> items = budgetMapper.selectList(new LambdaQueryWrapper<>());
+        for (BudgetItem item : items) {
+            BigDecimal used = expenseMapper.selectList(new LambdaQueryWrapper<Expense>()
+                            .eq(Expense::getProjectId, item.getProjectId())
+                            .eq(Expense::getCategory, item.getCategory())
+                            .in(Expense::getStatus, List.of(Dicts.ExpenseStatus.APPROVED.name(),
+                                    Dicts.ExpenseStatus.PENDING.name())))
+                    .stream().map(Expense::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+            item.setReservedAmount(used);
+            budgetMapper.updateById(item);
+        }
     }
 }

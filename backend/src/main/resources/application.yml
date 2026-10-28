@@ -4,7 +4,7 @@ server:
 spring:
   application:
     name: rims-backend
-  # 默认使用 H2 文件库，数据落盘到 backend/data/rims.mv.db，开箱即跑、重启不丢数据。
+  # 默认使用 H2 文件库，数据落盘到启动目录下的 data/rims.mv.db，开箱即跑、重启不丢数据。
   # 生产方式切换 MySQL：启动时加 --spring.profiles.active=mysql（见 application-mysql.yml）
   datasource:
     url: jdbc:h2:file:./data/rims;MODE=MySQL;DATABASE_TO_LOWER=TRUE;AUTO_SERVER=TRUE
@@ -50,13 +50,9 @@ rims:
     # 演示用密钥，生产环境请通过环境变量 RIMS_JWT_SECRET 注入
     secret: ${RIMS_JWT_SECRET:rims-demo-secret-key-change-me-in-production-0123456789}
     expire-hours: 12
-  ai:
-    # 预审默认走本地规则引擎（零依赖、可离线）。填入 OpenAI 兼容的 API Key 后自动切换为大模型评审。
-    enabled: false
-    base-url: ${RIMS_AI_BASE_URL:https://api.deepseek.com/v1}
-    api-key: ${RIMS_AI_API_KEY:}
-    model: ${RIMS_AI_MODEL:deepseek-chat}
-
+  cors:
+    # 允许跨域的来源（逗号分隔）。默认留空 = 仅本地 8080/5173。生产可填前端域名。
+    allowed-origins: ""
 logging:
   level:
     root: info

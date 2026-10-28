@@ -45,7 +45,7 @@
 
       <div v-show="!collapsed" class="side-footer">
         <div class="side-footer-line">科研项目全生命周期管理</div>
-        <div class="side-footer-line muted">MVP · v1.0.0</div>
+        <div class="side-footer-line muted">MVP · v1.1.0</div>
       </div>
     </aside>
 
